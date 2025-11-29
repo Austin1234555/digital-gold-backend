@@ -1,9 +1,9 @@
-// src/main/java/com/austin/simplifymoney/digital_gold_backend/service/PaymentGatewayService.java
 package com.austin.simplifymoney.digital_gold_backend.service;
 
 import com.austin.simplifymoney.digital_gold_backend.model.*;
 import com.austin.simplifymoney.digital_gold_backend.repository.PaymentRepository;
 import com.austin.simplifymoney.digital_gold_backend.repository.TransactionRepository;
+import com.austin.simplifymoney.digital_gold_backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,24 +13,27 @@ public class PaymentGatewayService {
 
     private final PaymentRepository paymentRepository;
     private final RazorpayService razorpayService;
-    private final PartnerService partnerService;
+    private final PriceService priceService;
+    private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
     public PaymentGatewayService(PaymentRepository paymentRepository,
                                  RazorpayService razorpayService,
-                                 PartnerService partnerService,
+                                 PriceService priceService,
+                                 UserRepository userRepository,
                                  TransactionRepository transactionRepository) {
+
         this.paymentRepository = paymentRepository;
         this.razorpayService = razorpayService;
-        this.partnerService = partnerService;
+        this.priceService = priceService;
+        this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
     }
 
-    // STEP 1 — create Razorpay order and save local Payment(status=CREATED)
+    // STEP 1 — create Razorpay order
     public RazorpayOrderResponse createRazorpayOrder(BuyRequest request) {
         try {
             String receipt = "rcpt_" + request.getUserId() + "_" + System.currentTimeMillis();
-
             RazorpayOrderResponse order = razorpayService.createOrder(request.getAmount(), receipt);
 
             Payment payment = new Payment();
@@ -49,7 +52,7 @@ public class PaymentGatewayService {
         }
     }
 
-    // STEP 2 — verify Razorpay → add gold to wallet → return BuyResponse
+    // STEP 2 — verify Razorpay and credit wallet
     public BuyResponse confirmRazorpayAndBuy(RazorpayConfirmRequest request) {
         try {
             // 1) verify Razorpay signature
@@ -59,35 +62,37 @@ public class PaymentGatewayService {
                     request.getRazorpaySignature()
             );
 
-            // 2) update local payment
+            // 2) update payment status
             Payment payment = paymentRepository.findByTransactionId(request.getRazorpayOrderId());
             if (payment == null) throw new RuntimeException("Payment record not found");
-
             payment.setStatus("SUCCESS");
             paymentRepository.save(payment);
 
-            // 3) get gold from partner
-            PartnerAllotmentResponse allotment =
-                    partnerService.confirmAllotment(request.getAmount());
+            // 3) convert Rupees → grams
+            double pricePerGram = priceService.getLatestPrice().getGoldPricePerGram();
+            double grams = request.getAmount() / pricePerGram;
 
-            // 4) save transaction (adds gold to wallet)
+            // 4) update user wallet
+            User user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            user.setWallet(user.getWallet() + grams);
+            userRepository.save(user);
+
+            // 5) save transaction
             Transaction tx = new Transaction();
             tx.setUserId(request.getUserId());
             tx.setType("BUY");
             tx.setAmountPaid(request.getAmount());
-            tx.setGoldPurchasedInGrams(allotment.getGoldAllottedInGrams());
+            tx.setGoldPurchasedInGrams(grams);
             tx.setPurchasedAt(LocalDateTime.now());
             transactionRepository.save(tx);
 
-            // 5) build response
-            BuyResponse response = new BuyResponse();
-            response.setPayment(payment);
-            response.setGold(allotment);
-            response.setWalletBalance(
-                    transactionRepository.getTotalGoldByUser(request.getUserId())
-            );
-
-            return response;
+            // 6) return response
+            BuyResponse res = new BuyResponse();
+            res.setPayment(payment);
+            res.setGoldInGrams(grams);
+            res.setWalletBalance(user.getWallet());
+            return res;
 
         } catch (Exception e) {
             throw new RuntimeException("Razorpay payment confirmation failed", e);
