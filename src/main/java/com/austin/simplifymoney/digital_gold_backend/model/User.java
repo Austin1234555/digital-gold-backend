@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users") // avoid reserved SQL keyword
 @Data
 public class User {
 
@@ -13,14 +13,18 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)   // Email must be unique and not null
     private String email;
 
+    @Column(nullable = false)                  // Password cannot be null
     private String password;
 
-    private double wallet = 0.0;    // 👈 Prevent null pointer issues
+    @Column(nullable = false)
+    private double wallet = 0.0;               // Default 0 gold for every new account
 
-    private LocalDateTime createdAt = LocalDateTime.now();  // 👈 Auto timestamp
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now(); // Timestamp auto-generated
 }
