@@ -4,8 +4,7 @@ import lombok.Data;
 
 @Data
 public class BuyResponse {
-
-    private Payment payment; // ⬅ changed from PaymentResponse to Payment
-    private PartnerAllotmentResponse gold;
-    private double walletBalance;
+    private Payment payment;
+    private double goldInGrams;     // gold purchased in grams
+    private double walletBalance;   // updated wallet after purchase
 }
