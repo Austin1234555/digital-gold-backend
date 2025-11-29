@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")  // 👈 FIX: rename table to avoid SQL keyword conflict
+@Table(name = "users")
 @Data
 public class User {
 
@@ -18,7 +18,9 @@ public class User {
     @Column(unique = true)
     private String email;
 
-    private String password; // encrypted
+    private String password;
 
-    private LocalDateTime createdAt;
+    private double wallet = 0.0;    // 👈 Prevent null pointer issues
+
+    private LocalDateTime createdAt = LocalDateTime.now();  // 👈 Auto timestamp
 }
