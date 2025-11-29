@@ -14,13 +14,14 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins(
+                        .allowedOriginPatterns(
                                 "http://localhost:3000",
-                                "https://digital-gold-frontend-4x9em34l3-austins-projects-014155ac.vercel.app"
+                                "https://*.vercel.app"   // allows all vercel deployments
                         )
-                        .allowedMethods("*")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
+
             }
         };
     }
