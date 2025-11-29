@@ -5,7 +5,8 @@ import com.austin.simplifymoney.digital_gold_backend.service.AuthService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/auth") // IMPORTANT
+@RequestMapping("/auth")
+@CrossOrigin // allow frontend
 public class AuthController {
 
     private final AuthService authService;
@@ -15,15 +16,12 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public User signup(@RequestParam String name,
-                       @RequestParam String email,
-                       @RequestParam String password) {
-        return authService.signup(name, email, password);
+    public User signup(@RequestBody User body) {
+        return authService.signup(body.getName(), body.getEmail(), body.getPassword());
     }
 
     @PostMapping("/login")
-    public User login(@RequestParam String email,
-                      @RequestParam String password) {
-        return authService.login(email, password);
+    public User login(@RequestBody User body) {
+        return authService.login(body.getEmail(), body.getPassword());
     }
 }
